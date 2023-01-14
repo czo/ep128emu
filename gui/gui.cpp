@@ -1335,11 +1335,7 @@ void Ep128EmuGUI::fileNameCallback(void *userData, std::string& fileName)
   try {
     std::string tmp(gui_.config.fileio.workingDirectory);
     gui_.browseFile(fileName, tmp, "All files\t*",
-#ifdef WIN32
                     Fl_Native_File_Chooser::BROWSE_FILE,
-#else
-                    Fl_Native_File_Chooser::BROWSE_SAVE_FILE,
-#endif
                     "Open file");
   }
   catch (std::exception& e) {
@@ -1597,11 +1593,7 @@ void Ep128EmuGUI::menuCallback_File_QSFileName(Fl_Widget *o, void *v)
   try {
     std::string tmp;
     if (gui_.browseFile(tmp, gui_.snapshotDirectory, "Snapshot files\t*",
-#ifdef WIN32
                         Fl_Native_File_Chooser::BROWSE_FILE,
-#else
-                        Fl_Native_File_Chooser::BROWSE_SAVE_FILE,
-#endif
                         "Select quick snapshot file"))
       gui_.quickSnapshotFileName = tmp;
   }
@@ -1989,11 +1981,7 @@ void Ep128EmuGUI::menuCallback_Machine_OpenTape(Fl_Widget *o, void *v)
     std::string tmp;
     if (gui_.browseFile(tmp, gui_.tapeImageDirectory,
                         "Tape files\t*.{tap,wav,aif,aiff,au,snd,tzx,cdt}",
-#ifdef WIN32
                         Fl_Native_File_Chooser::BROWSE_FILE,
-#else
-                        Fl_Native_File_Chooser::BROWSE_SAVE_FILE,
-#endif
                         "Select tape image file")) {
       Ep128EmuGUI::menuCallback_Machine_TapeStop(o, v);
       gui_.config["tape.imageFile"] = tmp;
@@ -2681,7 +2669,7 @@ void Ep128EmuGUI::menuCallback_Options_FileIODir(Fl_Widget *o, void *v)
     std::string tmp;
     std::string tmp2 = std::string(cv);
     if (gui_.browseFile(tmp, tmp2, "*",
-                        Fl_Native_File_Chooser::BROWSE_SAVE_DIRECTORY,
+                        Fl_Native_File_Chooser::BROWSE_DIRECTORY,
                         "Select working directory for the emulated machine")) {
       cv = tmp;
       gui_.applyEmulatorConfiguration();
