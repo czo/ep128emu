@@ -356,13 +356,13 @@ ep128emuGLGUIEnvironment.MergeFlags(ep128emuLibEnvironment['CCFLAGS'])
 makecfgEnvironment.MergeFlags(ep128emuLibEnvironment['CCFLAGS'])
 tapeeditEnvironment.MergeFlags(ep128emuLibEnvironment['CCFLAGS'])
 
-def fluidCompile(flNames):
+def fluidCompile(env, flNames):
     cppNames = []
     for flName in flNames:
         if flName.endswith('.fl'):
             cppName = flName[:-3] + '_fl.cpp'
             hppName = flName[:-3] + '_fl.hpp'
-            Command([cppName, hppName], flName,
+            env.Command([cppName, hppName], flName,
                     'fluid -c -o %s -h %s $SOURCES' % (cppName, hppName))
             cppNames += [cppName]
     return cppNames
@@ -513,7 +513,7 @@ if enableReSID:
 ep128emuEnvironment.Prepend(LIBS = [ep128Lib, zx128Lib, cpc464Lib, tvc64Lib])
 
 ep128emuSources = ['gui/gui.cpp']
-ep128emuSources += fluidCompile(['gui/gui.fl', 'gui/disk_cfg.fl',
+ep128emuSources += fluidCompile(ep128emuGUIEnvironment, ['gui/gui.fl', 'gui/disk_cfg.fl',
                                  'gui/disp_cfg.fl', 'gui/kbd_cfg.fl',
                                  'gui/snd_cfg.fl', 'gui/vm_cfg.fl',
                                  'gui/debug.fl', 'gui/about.fl'])
@@ -538,7 +538,7 @@ if sys.platform[:6] == 'darwin':
 
 tapeeditEnvironment.Append(CPPPATH = ['./tapeutil'])
 tapeeditEnvironment.Prepend(LIBS = ['ep128emu'])
-tapeeditSources = fluidCompile(['tapeutil/tapeedit.fl'])
+tapeeditSources = fluidCompile(ep128emuGUIEnvironment, ['tapeutil/tapeedit.fl'])
 tapeeditSources += ['tapeutil/tapeio.cpp']
 if mingwCrossCompile:
     tapeeditResourceObject = tapeeditEnvironment.Command(
@@ -616,7 +616,7 @@ if buildUtilities:
     if not disableOpenGL:
         epimgconvSources += ['util/epimgconv/src/imgconvgui.cpp',
                              'util/epimgconv/src/img_disp.cpp',
-                             fluidCompile(['util/epimgconv/src/epimgconv.fl'])]
+                             fluidCompile(ep128emuGUIEnvironment, ['util/epimgconv/src/epimgconv.fl'])]
     elif mingwCrossCompile:
         epimgconvEnvironment['LINKFLAGS'].remove('-mwindows')
     if mingwCrossCompile and not disableOpenGL:
@@ -644,7 +644,7 @@ if not mingwCrossCompile:
                                               envName : os.environ[envName] })
 
 makecfg = makecfgEnvironment.Program(programNamePrefix + 'makecfg',
-    ['installer/makecfg.cpp'] + fluidCompile(['installer/mkcfg.fl']))
+    ['installer/makecfg.cpp'] + fluidCompile(ep128emuGUIEnvironment, ['installer/mkcfg.fl']))
 Depends(makecfg, ep128emuLib)
 
 if sys.platform[:6] == 'darwin':
