@@ -301,13 +301,21 @@ if not oldSConsVersion:
                  ep128emuGUIEnvironment, ep128emuGLGUIEnvironment)
 
 configure = ep128emuLibEnvironment.Configure()
-if configure.CheckType('PaStreamCallbackTimeInfo', '#include <portaudio.h>'):
+if configure.CheckCHeader('stdint.h'):
+    ep128emuLibEnvironment.Append(CCFLAGS = ['-DHAVE_STDINT_H'])
+if sys.platform[:5] == 'linux' and not mingwCrossCompile:
+    if configure.CheckCHeader('linux/fd.h'):
+        ep128emuLibEnvironment.Append(CCFLAGS = ['-DHAVE_LINUX_FD_H'])
+configure.Finish()
+
+configureGUI = ep128emuGUIEnvironment.Configure()
+if configureGUI.CheckType('PaStreamCallbackTimeInfo', '#include <portaudio.h>'):
     havePortAudioV19 = 1
 else:
     havePortAudioV19 = 0
     print('WARNING: using old v18 PortAudio interface')
 fltkVersion13 = 0
-if configure.CheckCXXHeader('FL/Fl_Cairo.H'):
+if configureGUI.CheckCXXHeader('FL/Fl_Cairo.H'):
     fltkVersion13 = 1
 else:
     ep128emuLibEnvironment.Append(CPPPATH = ['./Fl_Native_File_Chooser'])
@@ -315,19 +323,14 @@ else:
     ep128emuGLGUIEnvironment.Append(CPPPATH = ['./Fl_Native_File_Chooser'])
     makecfgEnvironment.Append(CPPPATH = ['./Fl_Native_File_Chooser'])
     tapeeditEnvironment.Append(CPPPATH = ['./Fl_Native_File_Chooser'])
-if configure.CheckCHeader('stdint.h'):
-    ep128emuLibEnvironment.Append(CCFLAGS = ['-DHAVE_STDINT_H'])
-if sys.platform[:5] == 'linux' and not mingwCrossCompile:
-    if configure.CheckCHeader('linux/fd.h'):
-        ep128emuLibEnvironment.Append(CCFLAGS = ['-DHAVE_LINUX_FD_H'])
 
 oldLuaVersion = 0
 if haveLua:
-    if not configure.CheckType('lua_Integer',
+    if not configureGUI.CheckType('lua_Integer',
                                '#include <lua.h>\n#include <lauxlib.h>'):
         oldLuaVersion = 1
         print('WARNING: using old Lua 5.0.x API')
-configure.Finish()
+configureGUI.Finish()
 
 if not havePortAudioV19:
     ep128emuLibEnvironment.Append(CCFLAGS = ['-DUSING_OLD_PORTAUDIO_API'])
