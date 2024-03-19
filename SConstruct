@@ -650,7 +650,7 @@ Depends(makecfg, ep128emuLib)
 if sys.platform[:6] == 'darwin':
     Command('ep128emu.app/Contents/MacOS/' + programNamePrefix + 'makecfg',
             programNamePrefix + 'makecfg',
-            'mkdir -p ep128emu.app/Contents/MacOS ; cp -pf $SOURCES $TARGET')
+            'mkdir -p ep128emu.app/Contents/MacOS ; cp -pf $SOURCES $TARGET; cp install-osx.sh ep128emu.app/Contents/MacOS; chmod 0755 ep128emu.app/Contents/MacOS/install-osx.sh')
 
 # -----------------------------------------------------------------------------
 
