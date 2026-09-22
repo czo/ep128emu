@@ -26,7 +26,11 @@
 #include <FL/gl.h>
 #include <FL/Fl_Window.H>
 #include <FL/Fl_Gl_Window.H>
-#include <GL/glext.h>
+#ifdef __APPLE__
+#  include <OpenGL/glext.h>
+#else
+#  include <GL/glext.h>
+#endif
 
 #include "fldisp.hpp"
 #include "gldisp.hpp"
@@ -1331,6 +1335,11 @@ namespace Ep128Emu {
       else if (m->msgType == Message::MsgType_SetParameters) {
         Message_SetParameters *msg;
         msg = static_cast<Message_SetParameters *>(m);
+        // checkEvents() is called outside Fl_Gl_Window::draw(), so FLTK does
+        // not guarantee that this window's OpenGL context is current here.
+        // Native macOS dialogs can change the current context; make it
+        // explicit before touching any GL object/state.
+        this->make_current();
         if (displayParameters.displayQuality != msg->dp.displayQuality ||
             displayParameters.bufferingMode != msg->dp.bufferingMode) {
           Fl::remove_idle(&fltkIdleCallback, (void *) this);
@@ -1352,6 +1361,8 @@ namespace Ep128Emu {
               glDeleteTextures(1, &oldTextureID);
             this->mode(FL_RGB
                        | (msg->dp.bufferingMode != 0 ? FL_DOUBLE : FL_SINGLE));
+            // mode() may recreate/invalidate the native GL context.
+            this->make_current();
             if (oldTextureID) {
               oldTextureID = 0U;
               glGenTextures(1, &oldTextureID);

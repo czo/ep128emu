@@ -30,6 +30,9 @@
 #  include <porttime.h>
 #endif
 #include <vector>
+#ifdef __APPLE__
+#  include <atomic>
+#endif
 
 namespace Ep128Emu {
 
@@ -108,6 +111,15 @@ namespace Ep128Emu {
     Timer         timer_;
     double        nextTime;
     ThreadLock    closeDeviceLock;
+#ifdef __APPLE__
+    bool          usingMacAudioRing;
+    std::vector< int16_t > macAudioRing;
+    size_t        macAudioRingCapacityFrames;
+    size_t        macAudioRingStartThresholdFrames;
+    std::atomic<unsigned long long> macAudioWriteFrame;
+    std::atomic<unsigned long long> macAudioReadFrame;
+    std::atomic<bool> macAudioRingStarted;
+#endif
 #ifndef USING_OLD_PORTAUDIO_API
     static int portAudioCallback(const void *input, void *output,
                                  unsigned long frameCount,

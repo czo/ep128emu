@@ -56,6 +56,7 @@ namespace Ep128Emu {
     bool            pauseFlag;
     float           timesliceLength;
     float           avgTimesliceLength;
+    int             hostThreadPriority;
     double          prvTime;
     double          nxtTime;
     VirtualMachine::VMStatus  vmStatus;
@@ -177,6 +178,7 @@ namespace Ep128Emu {
      * A zero or negative value means no limit.
      */
     void setSpeedPercentage(int speedPercentage_);
+    void setHostThreadPriority(int priority_);
   // --------------------------------------------------------------------------
    private:
     virtual void run();

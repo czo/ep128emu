@@ -24,6 +24,11 @@
 #include "tvc64vm.hpp"
 #include "system.hpp"
 #include "guicolor.hpp"
+#ifdef __APPLE__
+#  include "macos_activity.hpp"
+#  include "macos_about.hpp"
+#  include <FL/Fl_Sys_Menu_Bar.H>
+#endif
 
 #include <typeinfo>
 
@@ -31,6 +36,13 @@
 #  include <windows.h>
 #else
 #  include <dirent.h>
+#endif
+
+#ifdef __APPLE__
+static void macOSAboutCallback(Fl_Widget *, void *)
+{
+  ep128emuShowMacOSAboutPanel();
+}
 #endif
 
 static void cfgErrorFunc(void *userData, const char *msg)
@@ -85,6 +97,9 @@ int main(int argc, char **argv)
   bool      glCanDoDoubleBuf = false;
 #endif
   bool      configLoaded = false;
+#ifdef __APPLE__
+  void      *macOSRealtimeActivity = (void *) 0;
+#endif
 
 #ifdef WIN32
   timeBeginPeriod(1U);
@@ -185,6 +200,11 @@ int main(int argc, char **argv)
     }
 
     Fl::lock();
+#ifdef __APPLE__
+    // Replace FLTK's generic macOS About panel so the native application menu
+    // shows this build identity and the exact toolkit patch version.
+    Fl_Sys_Menu_Bar::about(&macOSAboutCallback, (void *) 0);
+#endif
     Ep128Emu::setGUIColorScheme(colorScheme);
     audioOutput = new Ep128Emu::AudioOutput_PortAudio();
 #ifndef DISABLE_OPENGL_DISPLAY
@@ -395,6 +415,11 @@ int main(int argc, char **argv)
     }
 #endif
     config->applySettings();
+#ifdef __APPLE__
+    // Request latency-critical scheduling while the emulator is active.
+    // Normal idle system sleep remains allowed.
+    macOSRealtimeActivity = ep128emuBeginMacOSRealtimeActivity();
+#endif
     if (snapshotFile) {
       vm->registerChunkTypes(*snapshotFile);
       snapshotFile->processAllChunks();

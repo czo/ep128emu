@@ -118,6 +118,7 @@ class Ep128EmuGUI {open
   decl {void updateMenu();} {}
   decl {static void errorMessageCallback(void *userData, const char *msg);} {}
   decl {static void fileNameCallback(void *userData, std::string& fileName);} {}
+  decl {static void videoFileNameCallback(void *userData, std::string& fileName);} {}
   decl {static void fltkCheckCallback(void *userData);} {}
   decl {static void screenshotCallback(void *userData, const unsigned char *buf, int w_, int h_);} {}
   decl {static void pollJoystickInput(void *userData);} {}
@@ -207,23 +208,23 @@ class Ep128EmuGUI {open
       code0 {o->add(emulatorWindow);} size_range {384 348 1536 1182} visible
     } {
       Fl_Menu_Bar mainMenuBar {open
-        xywh {0 2 300 26} box FLAT_BOX color 48
+        xywh {0 2 380 30} box FLAT_BOX color 48
       } {}
       Fl_Group diskStatusDisplayGroup {
         label {Disk: } open
-        xywh {345 0 30 30} box PLASTIC_THIN_UP_BOX color 255 labelsize 12 align 4
+        xywh {456 0 30 30} box PLASTIC_THIN_UP_BOX color 255 labelsize 12 align 4
       } {
         Fl_Box driveALEDDisplay {
-          xywh {351 2 18 5} box THIN_DOWN_BOX color 56
+          xywh {462 2 18 5} box THIN_DOWN_BOX color 56
         }
         Fl_Box driveBLEDDisplay {
-          xywh {351 9 18 5} box THIN_DOWN_BOX color 56
+          xywh {462 9 18 5} box THIN_DOWN_BOX color 56
         }
         Fl_Box driveCLEDDisplay {
-          xywh {351 16 18 5} box THIN_DOWN_BOX color 56
+          xywh {462 16 18 5} box THIN_DOWN_BOX color 56
         }
         Fl_Box driveDLEDDisplay {
-          xywh {351 23 18 5} box THIN_DOWN_BOX color 56
+          xywh {462 23 18 5} box THIN_DOWN_BOX color 56
         }
       }
       Fl_Group statusDisplayGroup {open

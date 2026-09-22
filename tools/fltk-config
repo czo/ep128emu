@@ -1,0 +1,19 @@
+#!/bin/sh
+set -eu
+PREFIX="${EP128EMU_FLTK_PREFIX:-/opt/homebrew}"
+REAL="${EP128EMU_FLTK_CONFIG:-$PREFIX/bin/fltk-config}"
+SDK="$(xcrun --show-sdk-path)"
+OUT="$("$REAL" "$@")"
+OUT="$(printf '%s' "$OUT" | sed "s#/Library/Developer/CommandLineTools/SDKs/MacOSX12\\.sdk#$SDK#g")"
+# FLTK 1.4.5 emits "-weak_framework UniformTypeIdentifiers".
+# SCons ParseConfig() can misinterpret the framework name as an implicit file
+# dependency; pass it through the linker explicitly instead.
+OUT="$(printf '%s' "$OUT" | sed 's/-weak_framework UniformTypeIdentifiers/-Wl,-weak_framework,UniformTypeIdentifiers/g')"
+case " $* " in
+  *" --ldflags "*)
+    if [ "$PREFIX" = /opt/homebrew ]; then
+      OUT="-L/opt/homebrew/opt/jpeg-turbo/lib -L/opt/homebrew/opt/libpng/lib $OUT"
+    fi
+    ;;
+esac
+printf '%s\n' "$OUT"

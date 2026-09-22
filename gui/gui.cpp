@@ -160,10 +160,10 @@ void Ep128EmuGUI::updateDisplay_windowMode()
                                 0 : (newWindowHeight - 30)),
                                360, 30);
     statusDisplayGroup->show();
-    mainMenuBar->resize(0, 2, 300, 26);
+    mainMenuBar->resize(0, 2, 380, 30);
     mainMenuBar->show();
     if (typeid(vm) != typeid(ZX128::ZX128VM)) {
-      diskStatusDisplayGroup->resize(345, 0, 30, 30);
+      diskStatusDisplayGroup->resize(456, 0, 30, 30);
       diskStatusDisplayGroup->show();
     }
   }
@@ -198,8 +198,8 @@ void Ep128EmuGUI::updateDisplay_windowSize()
                                  (newWindowWidth >= 745 ?
                                   0 : (newWindowHeight - 30)),
                                  360, 30);
-      mainMenuBar->resize(0, 2, 300, 26);
-      diskStatusDisplayGroup->resize(345, 0, 30, 30);
+      mainMenuBar->resize(0, 2, 380, 30);
+      diskStatusDisplayGroup->resize(456, 0, 30, 30);
     }
     else {
       emulatorWindow->resize(0, 0, newWindowWidth, newWindowHeight);
@@ -486,6 +486,29 @@ int Ep128EmuGUI::getMenuItemIndex(int n)
 
 void Ep128EmuGUI::createMenus()
 {
+#ifdef __APPLE__
+  // Keep the large mouse target from T001, but put most of the extra height
+  // into the glyphs themselves.  FLTK distributes menu_linespacing around
+  // entries and clips the menu edges slightly, which made the first and last
+  // highlighted rows look smaller when spacing alone was made very large.
+  float menuDpiH = 96.0f;
+  float menuDpiV = 96.0f;
+  Fl::screen_dpi(menuDpiH, menuDpiV, 0);
+  float menuDpi = (menuDpiH > menuDpiV ? menuDpiH : menuDpiV);
+  int menuTextSize = int((16.0f * menuDpi / 96.0f) + 0.5f);
+  if (menuTextSize < 18)
+    menuTextSize = 18;
+  else if (menuTextSize > 22)
+    menuTextSize = 22;
+  int menuLineSpacing = int((7.0f * menuDpi / 96.0f) + 0.5f);
+  if (menuLineSpacing < 8)
+    menuLineSpacing = 8;
+  else if (menuLineSpacing > 12)
+    menuLineSpacing = 12;
+  Fl::menu_linespacing(menuLineSpacing);
+  mainMenuBar->textsize(menuTextSize);
+  mainMenuBar->resize(mainMenuBar->x(), mainMenuBar->y(), mainMenuBar->w(), 30);
+#endif
 #if defined(LINUX_FLTK_VERSION) && (LINUX_FLTK_VERSION >= 10302)
   {
     // work around broken auto-repeat on Linux
@@ -572,17 +595,17 @@ void Ep128EmuGUI::createMenus()
                    (char *) 0, &menuCallback_File_Quit, (void *) this);
   mainMenuBar->add("Machine/Speed/No limit (Alt+W)",
                    (char *) 0, &menuCallback_Machine_FullSpeed, (void *) this);
-  mainMenuBar->add("Machine/Speed/10%",
+  mainMenuBar->add("Machine/Speed/10% (Alt+1)",
                    (char *) 0, &menuCallback_Machine_Speed_10, (void *) this);
-  mainMenuBar->add("Machine/Speed/25%",
+  mainMenuBar->add("Machine/Speed/25% (Alt+2)",
                    (char *) 0, &menuCallback_Machine_Speed_25, (void *) this);
-  mainMenuBar->add("Machine/Speed/50%",
+  mainMenuBar->add("Machine/Speed/50% (Alt+3)",
                    (char *) 0, &menuCallback_Machine_Speed_50, (void *) this);
-  mainMenuBar->add("Machine/Speed/100% (Alt+E)",
+  mainMenuBar->add("Machine/Speed/100% (Alt+4 / Alt+E)",
                    (char *) 0, &menuCallback_Machine_Speed_100, (void *) this);
-  mainMenuBar->add("Machine/Speed/200%",
+  mainMenuBar->add("Machine/Speed/200% (Alt+5)",
                    (char *) 0, &menuCallback_Machine_Speed_200, (void *) this);
-  mainMenuBar->add("Machine/Speed/400%",
+  mainMenuBar->add("Machine/Speed/400% (Alt+6)",
                    (char *) 0, &menuCallback_Machine_Speed_400, (void *) this);
   mainMenuBar->add("Machine/Tape/Select image file (Alt+T)",
                    (char *) 0, &menuCallback_Machine_OpenTape, (void *) this);
@@ -706,8 +729,8 @@ void Ep128EmuGUI::createMenus()
   // "Options/Process priority/High"
   for (int i = 4; i <= 8; i++)
     mainMenuBar->mode(getMenuItemIndex(i), FL_MENU_RADIO);
-#ifndef WIN32
-  // TODO: implement process priority setting on non-Windows platforms
+#if !defined(WIN32) && !defined(__APPLE__)
+  // TODO: implement process priority setting on other non-Windows platforms
   for (int i = 4; i <= 8; i++)
     getMenuItem(i).deactivate();
 #endif
@@ -927,7 +950,55 @@ int Ep128EmuGUI::handleFLTKEvent(void *userData, int event)
     {
       int   keyCode = Fl::event_key();
       bool  isKeyPress = (event == FL_KEYDOWN);
-      if (!(keyCode >= (FL_F + 9) && keyCode <= (FL_F + 12))) {
+
+      // On macOS, Option+letter may arrive with FL_ALT already set on the
+      // letter event before FLTK has delivered a separate Alt key event.
+      // Recognize our reserved Alt shortcuts from the event modifier state
+      // before forwarding the letter to the emulated keyboard; otherwise the
+      // first Option+Q/E/W/etc. can type the plain character into BASIC.
+      bool  altShortcutPress = false;
+      if (Fl::event_alt() && keyCode >= 0x31 && keyCode <= 0x36) {
+        // Alt+1..Alt+6 select the six fixed speed presets in menu order.
+        // Handle these directly so they can never leak digits into the VM.
+        if (isKeyPress) {
+          switch (keyCode) {
+          case 0x31:
+            gui_.menuCallback_Machine_Speed_10((Fl_Widget *) 0, userData);
+            break;
+          case 0x32:
+            gui_.menuCallback_Machine_Speed_25((Fl_Widget *) 0, userData);
+            break;
+          case 0x33:
+            gui_.menuCallback_Machine_Speed_50((Fl_Widget *) 0, userData);
+            break;
+          case 0x34:
+            gui_.menuCallback_Machine_Speed_100((Fl_Widget *) 0, userData);
+            break;
+          case 0x35:
+            gui_.menuCallback_Machine_Speed_200((Fl_Widget *) 0, userData);
+            break;
+          case 0x36:
+            gui_.menuCallback_Machine_Speed_400((Fl_Widget *) 0, userData);
+            break;
+          }
+        }
+        return 1;
+      }
+      if (isKeyPress && Fl::event_alt()) {
+        if (keyCode == 0x2C || keyCode == 0x2E) {
+          altShortcutPress = true;
+        }
+        else if (keyCode >= 0x61 && keyCode <= 0x77) {
+          static const unsigned char altKeyMap_[0x17] = {
+            23, 24, 25, 26, 27, 28,  0, 29, 30,  0, 31, 32,
+             0,  0, 33, 34, 35, 36, 37, 38, 39,  0, 40
+          };
+          altShortcutPress = bool(altKeyMap_[keyCode - 0x61]);
+        }
+      }
+
+      if (!altShortcutPress &&
+          !(keyCode >= (FL_F + 9) && keyCode <= (FL_F + 12))) {
         int   n = gui_.config.convertKeyCode(keyCode);
         if (n >= 0 && (gui_.functionKeyState == 0U || !isKeyPress)) {
           try {
@@ -1270,12 +1341,23 @@ void Ep128EmuGUI::applyEmulatorConfiguration(bool updateWindowFlag_)
 {
   if (lockVMThread()) {
     try {
+      bool    processPriorityChanged_ = config.vmProcessPriorityChanged;
       bool    updateMenuFlag_ =
-          config.soundSettingsChanged | config.vmProcessPriorityChanged;
+          config.soundSettingsChanged | processPriorityChanged_;
       config.applySettings();
+#ifdef __APPLE__
+      if (processPriorityChanged_)
+        vmThread.setHostThreadPriority(config.vm.processPriority);
+#endif
+#ifdef __APPLE__
+      // CoreAudio uses a non-blocking SPSC ring, so audio no longer provides
+      // the VM's real-time pacing. Keep the configured speed limit explicit.
+      vmThread.setSpeedPercentage(int(config.vm.speedPercentage));
+#else
       vmThread.setSpeedPercentage(config.vm.speedPercentage == 100U &&
                                   config.sound.enabled ?
                                   0 : int(config.vm.speedPercentage));
+#endif
       if (config.joystickSettingsChanged) {
         joystickInput.setConfiguration(config.joystick);
         config.joystickSettingsChanged = false;
@@ -1337,6 +1419,20 @@ void Ep128EmuGUI::fileNameCallback(void *userData, std::string& fileName)
     gui_.browseFile(fileName, tmp, "All files\t*",
                     Fl_Native_File_Chooser::BROWSE_FILE,
                     "Open file");
+  }
+  catch (std::exception& e) {
+    gui_.errorMessage(e.what());
+  }
+}
+
+void Ep128EmuGUI::videoFileNameCallback(void *userData, std::string& fileName)
+{
+  Ep128EmuGUI&  gui_ = *(reinterpret_cast<Ep128EmuGUI *>(userData));
+  try {
+    std::string tmp(gui_.config.fileio.workingDirectory);
+    gui_.browseFile(fileName, tmp, "AVI files\t*.avi",
+                    Fl_Native_File_Chooser::BROWSE_SAVE_FILE,
+                    "Select next video output file");
   }
   catch (std::exception& e) {
     gui_.errorMessage(e.what());
@@ -1593,7 +1689,11 @@ void Ep128EmuGUI::menuCallback_File_QSFileName(Fl_Widget *o, void *v)
   try {
     std::string tmp;
     if (gui_.browseFile(tmp, gui_.snapshotDirectory, "Snapshot files\t*",
+#ifdef WIN32
                         Fl_Native_File_Chooser::BROWSE_FILE,
+#else
+                        Fl_Native_File_Chooser::BROWSE_SAVE_FILE,
+#endif
                         "Select quick snapshot file"))
       gui_.quickSnapshotFileName = tmp;
   }
@@ -1805,7 +1905,7 @@ void Ep128EmuGUI::menuCallback_File_RecordVideo(Fl_Widget *o, void *v)
         gui_.vm.openVideoCapture(gui_.config.videoCapture.frameRate,
                                  gui_.config.videoCapture.yuvFormat,
                                  &Ep128EmuGUI::errorMessageCallback,
-                                 &Ep128EmuGUI::fileNameCallback, v);
+                                 &Ep128EmuGUI::videoFileNameCallback, v);
         gui_.getMenuItem(2).activate();         // "File/Record video/Stop"
         gui_.vm.setVideoCaptureFile(tmp);
       }
