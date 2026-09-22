@@ -1,0 +1,34 @@
+EP128EMU 2.0.11.2 macOS ARM64 build 2026.09
+Reference build environment recorded 2026-09-22
+
+Host/toolchain:
+macOS 14.8.7 (23J520)
+Apple clang 16.0.0 (clang-1600.0.26.6)
+macOS SDK 15.2
+SCons 4.4.0
+CMake 4.4.3
+Homebrew 7.0.4
+
+Pinned GUI toolkit:
+FLTK 1.4.5
+Official source archive SHA-256:
+eede1fb2b8e9c2e581e77082e15252145855c79aad30070ee3b24aabe2f926f1
+
+Direct Homebrew build dependencies used by the reference build:
+portaudio 19.7.0
+libsndfile 1.2.2
+sdl12-compat 1.2.76
+sdl2-compat 2.32.72
+sdl3 3.4.16
+lua 5.5.1
+
+Relevant transitive runtime dependencies in the reference standalone bundle:
+FLAC 1.4.3
+libogg 1.3.5
+libvorbis 1.3.7
+Opus 1.6.1
+mpg123 1.33.6
+LAME 3.100
+
+The packaging script recursively copies non-system dylibs required by the
+executables and bundled libraries, including the SDL compatibility chain.
