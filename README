@@ -8,6 +8,59 @@ bit Windows and Linux, and MacOS X have been tested).
 It implements accurate, high quality hardware emulation, however, the
 system requirements are higher than that of most other emulators.
 
+macOS Apple Silicon (ARM64) build
+=================================
+
+This branch adds a native Apple Silicon build for macOS, based on
+ep128emu 2.0.11.2 and the macOS work already present in this fork.
+Rosetta is not required.
+
+The macOS ARM64 work includes:
+
+  * ARM64 little-endian Z80 byte order detection
+  * native Apple OpenGL headers and explicit OpenGL context restoration
+    after native macOS dialogs or display mode changes
+  * Retina/HiDPI menu and status-area adjustments
+  * corrected Alt shortcut handling and fixed-speed shortcuts
+    (Alt+1 through Alt+6)
+  * native macOS QoS mapping for the Process Priority setting
+  * latency-critical macOS process activity while emulation is running
+  * CoreAudio-specific buffering using a lock-free SPSC audio ring, with
+    explicit 100% VM pacing instead of using audio blocking as a clock
+  * FLTK 1.4.5 as the pinned macOS GUI toolkit
+  * a native macOS About panel showing the application and GUI build
+    versions
+  * standalone application packaging with recursive bundling of non-system
+    dynamic libraries, including the SDL compatibility chain
+
+Apart from the ARM64 byte-order support, these changes are primarily in
+the macOS host integration, user interface, audio scheduling, build system,
+and packaging.
+
+Building on Apple Silicon
+-------------------------
+
+For the reproducible macOS ARM64 build procedure, see
+BUILD_MACOS_ARM64.md. The reference compiler and dependency versions are
+listed in DEPENDENCY_MANIFEST.txt.
+
+A complete rebuild can be started with:
+
+  ./REBUILD_MACOS_ARM64.sh
+
+The rebuild script downloads and verifies the official FLTK 1.4.5 source,
+builds a private ARM64 FLTK toolchain including fluid, compiles ep128emu,
+bundles the required non-system libraries into the application, applies
+ad-hoc signing, verifies the bundle, and creates a ZIP in rebuild-output/.
+
+The reference build has been validated with a clean source build, native
+arm64 binary check, standalone dependency audit, code-signature structural
+verification, and a clean-home startup smoke test.
+
+The application is not Developer ID signed or Apple-notarized. When using
+an unsigned community build downloaded from the Internet, macOS Gatekeeper
+may require manual approval on first launch.
+
 Features
 ========
 
