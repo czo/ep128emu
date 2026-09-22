@@ -176,8 +176,12 @@ def copyEnvironment(env):
         return env.Copy()
     return env.Clone()
 
-ep128emuLibEnvironment = Environment(ENV = { 'PATH' : os.environ['PATH'],
-                                             'HOME' : os.environ['HOME'] })
+sconsEnv = { 'PATH' : os.environ['PATH'],
+             'HOME' : os.environ['HOME'] }
+for k in ('EP128EMU_FLTK_PREFIX', 'EP128EMU_FLTK_CONFIG'):
+    if k in os.environ:
+        sconsEnv[k] = os.environ[k]
+ep128emuLibEnvironment = Environment(ENV = sconsEnv)
 if linux32CrossCompile:
     compilerFlags = ' -m32 ' + compilerFlags
 ep128emuLibEnvironment.Append(CCFLAGS = Split(compilerFlags))
@@ -188,6 +192,14 @@ if not mingwCrossCompile:
     ep128emuLibEnvironment.Append(CPPPATH = ['/usr/local/include'])
 if sys.platform[:6] == 'darwin':
     ep128emuLibEnvironment.Append(CPPPATH = ['/usr/X11R6/include'])
+    # Allow a pinned local FLTK prefix for reproducible macOS builds.
+    # Keep Homebrew includes available for the other dependencies.
+    fltkPrefix = os.environ.get('EP128EMU_FLTK_PREFIX', '/opt/homebrew')
+    ep128emuLibEnvironment.Prepend(CPPPATH = [fltkPrefix + '/include',
+                                              '/opt/homebrew/include'])
+    # FLTK 1.4 dylibs use @rpath for their internal dependencies.
+    ep128emuLibEnvironment.Append(
+        LINKFLAGS = ['-Wl,-rpath,' + fltkPrefix + '/lib'])
 if not linux32CrossCompile:
     linkFlags = ' -L. '
 else:
@@ -318,21 +330,13 @@ if not oldSConsVersion:
                  ep128emuGUIEnvironment, ep128emuGLGUIEnvironment)
 
 configure = ep128emuLibEnvironment.Configure()
-if configure.CheckCHeader('stdint.h'):
-    ep128emuLibEnvironment.Append(CCFLAGS = ['-DHAVE_STDINT_H'])
-if sys.platform[:5] == 'linux' and not mingwCrossCompile:
-    if configure.CheckCHeader('linux/fd.h'):
-        ep128emuLibEnvironment.Append(CCFLAGS = ['-DHAVE_LINUX_FD_H'])
-configure.Finish()
-
-configureGUI = ep128emuGUIEnvironment.Configure()
-if configureGUI.CheckType('PaStreamCallbackTimeInfo', '#include <portaudio.h>'):
+if configure.CheckType('PaStreamCallbackTimeInfo', '#include <portaudio.h>'):
     havePortAudioV19 = 1
 else:
     havePortAudioV19 = 0
     print('WARNING: using old v18 PortAudio interface')
 fltkVersion13 = 0
-if configureGUI.CheckCXXHeader('FL/Fl_Cairo.H'):
+if configure.CheckCXXHeader('FL/Fl_Cairo.H'):
     fltkVersion13 = 1
 else:
     ep128emuLibEnvironment.Append(CPPPATH = ['./Fl_Native_File_Chooser'])
@@ -340,14 +344,19 @@ else:
     ep128emuGLGUIEnvironment.Append(CPPPATH = ['./Fl_Native_File_Chooser'])
     makecfgEnvironment.Append(CPPPATH = ['./Fl_Native_File_Chooser'])
     tapeeditEnvironment.Append(CPPPATH = ['./Fl_Native_File_Chooser'])
+if configure.CheckCHeader('stdint.h'):
+    ep128emuLibEnvironment.Append(CCFLAGS = ['-DHAVE_STDINT_H'])
+if sys.platform[:5] == 'linux' and not mingwCrossCompile:
+    if configure.CheckCHeader('linux/fd.h'):
+        ep128emuLibEnvironment.Append(CCFLAGS = ['-DHAVE_LINUX_FD_H'])
 
 oldLuaVersion = 0
 if haveLua:
-    if not configureGUI.CheckType('lua_Integer',
+    if not configure.CheckType('lua_Integer',
                                '#include <lua.h>\n#include <lauxlib.h>'):
         oldLuaVersion = 1
         print('WARNING: using old Lua 5.0.x API')
-configureGUI.Finish()
+configure.Finish()
 
 if not havePortAudioV19:
     ep128emuLibEnvironment.Append(CCFLAGS = ['-DUSING_OLD_PORTAUDIO_API'])
@@ -531,7 +540,7 @@ ep128emuEnvironment.Prepend(LIBS = [ep128Lib, zx128Lib, cpc464Lib, tvc64Lib])
 
 ep128emuSources = ['gui/gui.cpp']
 if sys.platform[:6] == 'darwin':
-    ep128emuSources += ['gui/macos_activity.mm']
+    ep128emuSources += ['gui/macos_activity.mm', 'gui/macos_about.mm']
 ep128emuSources += fluidCompile(ep128emuGUIEnvironment, ['gui/gui.fl', 'gui/disk_cfg.fl',
                                  'gui/disp_cfg.fl', 'gui/kbd_cfg.fl',
                                  'gui/snd_cfg.fl', 'gui/vm_cfg.fl',
