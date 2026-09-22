@@ -1349,9 +1349,15 @@ void Ep128EmuGUI::applyEmulatorConfiguration(bool updateWindowFlag_)
       if (processPriorityChanged_)
         vmThread.setHostThreadPriority(config.vm.processPriority);
 #endif
+#ifdef __APPLE__
+      // CoreAudio uses a non-blocking SPSC ring, so audio no longer provides
+      // the VM's real-time pacing. Keep the configured speed limit explicit.
+      vmThread.setSpeedPercentage(int(config.vm.speedPercentage));
+#else
       vmThread.setSpeedPercentage(config.vm.speedPercentage == 100U &&
                                   config.sound.enabled ?
                                   0 : int(config.vm.speedPercentage));
+#endif
       if (config.joystickSettingsChanged) {
         joystickInput.setConfiguration(config.joystick);
         config.joystickSettingsChanged = false;

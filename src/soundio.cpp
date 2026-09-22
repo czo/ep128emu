@@ -220,6 +220,14 @@ namespace Ep128Emu {
       latencyFramesHW(4096L),
       nextTime(0.0),
       closeDeviceLock(true)
+#ifdef __APPLE__
+      , usingMacAudioRing(false),
+      macAudioRingCapacityFrames(0),
+      macAudioRingStartThresholdFrames(0),
+      macAudioWriteFrame(0ULL),
+      macAudioReadFrame(0ULL),
+      macAudioRingStarted(false)
+#endif
   {
     // initialize PortAudio
     if (isPortAudioError("calling Pa_Initialize()", Pa_Initialize()))
@@ -307,6 +315,27 @@ namespace Ep128Emu {
       else
 #endif
       {
+#ifdef __APPLE__
+        if (usingMacAudioRing) {
+          unsigned long long w =
+              macAudioWriteFrame.load(std::memory_order_relaxed);
+          unsigned long long r =
+              macAudioReadFrame.load(std::memory_order_acquire);
+          for (size_t i = 0; i < nFrames; i++) {
+            if ((w - r) >=
+                (unsigned long long) macAudioRingCapacityFrames) {
+              r = macAudioReadFrame.load(std::memory_order_acquire);
+              continue;
+            }
+            size_t p = size_t(w % macAudioRingCapacityFrames) << 1;
+            macAudioRing[p] = buf[(i << 1) + 0];
+            macAudioRing[p + 1] = buf[(i << 1) + 1];
+            w++;
+          }
+          macAudioWriteFrame.store(w, std::memory_order_release);
+        }
+        else
+#endif
         for (size_t i = 0; i < nFrames; i++) {
           Buffer& buf_ = buffers[writeBufIndex];
           buf_.audioData[buf_.writePos++] = buf[(i << 1) + 0];
@@ -355,6 +384,15 @@ namespace Ep128Emu {
     writeBufIndex = 0;
     readBufIndex = 0;
     buffers.clear();
+#ifdef __APPLE__
+    usingMacAudioRing = false;
+    macAudioRing.clear();
+    macAudioRingCapacityFrames = 0;
+    macAudioRingStartThresholdFrames = 0;
+    macAudioWriteFrame.store(0ULL, std::memory_order_relaxed);
+    macAudioReadFrame.store(0ULL, std::memory_order_relaxed);
+    macAudioRingStarted.store(false, std::memory_order_relaxed);
+#endif
     // call base class to reset internal state
     AudioOutput::closeDevice();
   }
@@ -427,6 +465,47 @@ namespace Ep128Emu {
 #else
     (void) outTime;
 #endif
+#ifdef __APPLE__
+    if (p->usingMacAudioRing) {
+      size_t copiedFrames = 0;
+      unsigned long long r =
+          p->macAudioReadFrame.load(std::memory_order_relaxed);
+      unsigned long long w =
+          p->macAudioWriteFrame.load(std::memory_order_acquire);
+      unsigned long long available = w - r;
+      bool started = p->macAudioRingStarted.load(std::memory_order_relaxed);
+      if (!started &&
+          available >=
+              (unsigned long long) p->macAudioRingStartThresholdFrames) {
+        started = true;
+        p->macAudioRingStarted.store(true, std::memory_order_relaxed);
+      }
+      if (started) {
+        copiedFrames = size_t(available < (unsigned long long) frameCount ?
+                              available : (unsigned long long) frameCount);
+        for (size_t j = 0; j < copiedFrames; j++) {
+          size_t q = size_t((r + j) % p->macAudioRingCapacityFrames) << 1;
+          buf[(j << 1) + 0] = p->macAudioRing[q];
+          buf[(j << 1) + 1] = p->macAudioRing[q + 1];
+        }
+        if (copiedFrames)
+          p->macAudioReadFrame.store(r + copiedFrames,
+                                     std::memory_order_release);
+        if (copiedFrames < frameCount)
+          p->macAudioRingStarted.store(false, std::memory_order_relaxed);
+      }
+      for (size_t j = copiedFrames; j < frameCount; j++) {
+        buf[(j << 1) + 0] = 0;
+        buf[(j << 1) + 1] = 0;
+      }
+      p->closeDeviceLock.notify();
+#ifndef USING_OLD_PORTAUDIO_API
+      return int(paContinue);
+#else
+      return 0;
+#endif
+    }
+#endif
     if (nFrames > (p->buffers[p->readBufIndex].audioData.size() >> 1))
       nFrames = p->buffers[p->readBufIndex].audioData.size() >> 1;
     nFrames <<= 1;
@@ -449,6 +528,15 @@ namespace Ep128Emu {
 
   void AudioOutput_PortAudio::openDevice()
   {
+#ifdef __APPLE__
+    usingMacAudioRing = false;
+    macAudioRing.clear();
+    macAudioRingCapacityFrames = 0;
+    macAudioRingStartThresholdFrames = 0;
+    macAudioWriteFrame.store(0ULL, std::memory_order_relaxed);
+    macAudioReadFrame.store(0ULL, std::memory_order_relaxed);
+    macAudioRingStarted.store(false, std::memory_order_relaxed);
+#endif
     writeBufIndex = 0;
     readBufIndex = 0;
     paStream = (PaStream *) 0;
@@ -481,6 +569,7 @@ namespace Ep128Emu {
     if (devIndex >= devCnt)
       throw Exception("device number is out of range");
     usingBlockingInterface = false;
+    bool    usingCoreAudioInterface = false;
     int     nPeriodsHW_ = nPeriodsHW;
 #ifndef USING_OLD_PORTAUDIO_API
     int     nPeriodsSW_ = nPeriodsSW;
@@ -502,6 +591,18 @@ namespace Ep128Emu {
         else {
           // ASIO or WDM-KS: force double buffering
           nPeriodsHW_ = 2;
+          nPeriodsSW_ = (nPeriodsSW_ >= 2 ? nPeriodsSW_ : 2);
+        }
+#  elif defined(__APPLE__)
+        else if (hostApiInfo->type == paCoreAudio) {
+          usingCoreAudioInterface = true;
+          usingMacAudioRing = true;
+          // CoreAudio is a callback API; do not split the requested latency
+          // by the historical generic hardware-buffer count.
+          nPeriodsHW_ = 2;
+          nPeriodsSW_ = (nPeriodsSW_ >= 2 ? nPeriodsSW_ : 2);
+        }
+        else {
           nPeriodsSW_ = (nPeriodsSW_ >= 2 ? nPeriodsSW_ : 2);
         }
 #  else
@@ -528,6 +629,10 @@ namespace Ep128Emu {
     }
     if (periodSize > 16384)
       periodSize = 16384;
+#ifdef __APPLE__
+    if (usingCoreAudioInterface && periodSize < 128)
+      periodSize = 128;
+#endif
     latencyFramesHW = long(nPeriodsHW_ - 1) * long(periodSize);
     if (disableRingBuffer) {
       paLockTimeout = (unsigned int) (double(latencyFramesHW) * 1000.0
@@ -543,6 +648,16 @@ namespace Ep128Emu {
       for (int j = 0; j < (periodSize << 1); j++)
         buffers[i].audioData[j] = 0;
     }
+#ifdef __APPLE__
+    if (usingMacAudioRing) {
+      // Minimum 1024 frames capacity and 512 frames prefill with the 128-frame
+      // CoreAudio floor: enough headroom for short background scheduler jitter.
+      size_t ringPeriods = size_t(nPeriodsSW_ >= 8 ? nPeriodsSW_ : 8);
+      macAudioRingCapacityFrames = size_t(periodSize) * ringPeriods;
+      macAudioRingStartThresholdFrames = size_t(periodSize) * 4U;
+      macAudioRing.resize(macAudioRingCapacityFrames << 1, int16_t(0));
+    }
+#endif
     // open audio stream
 #ifndef USING_OLD_PORTAUDIO_API
     PaStreamParameters  streamParams;
