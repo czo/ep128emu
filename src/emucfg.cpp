@@ -112,9 +112,11 @@ namespace Ep128Emu {
                                 vmProcessPriorityChanged,
 #ifdef WIN32
                                 -2.0, 3.0
+#elif defined(__APPLE__)
+                                -2.0, 2.0
 #else
                                 // TODO: implement process priority setting
-                                // on non-Windows platforms
+                                // on other non-Windows platforms
                                 0.0, 0.0
 #endif
                                 );

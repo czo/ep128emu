@@ -24,6 +24,9 @@
 #include "tvc64vm.hpp"
 #include "system.hpp"
 #include "guicolor.hpp"
+#ifdef __APPLE__
+#  include "macos_activity.hpp"
+#endif
 
 #include <typeinfo>
 
@@ -85,6 +88,9 @@ int main(int argc, char **argv)
   bool      glCanDoDoubleBuf = false;
 #endif
   bool      configLoaded = false;
+#ifdef __APPLE__
+  void      *macOSRealtimeActivity = (void *) 0;
+#endif
 
 #ifdef WIN32
   timeBeginPeriod(1U);
@@ -395,6 +401,11 @@ int main(int argc, char **argv)
     }
 #endif
     config->applySettings();
+#ifdef __APPLE__
+    // Request latency-critical scheduling while the emulator is active.
+    // Normal idle system sleep remains allowed.
+    macOSRealtimeActivity = ep128emuBeginMacOSRealtimeActivity();
+#endif
     if (snapshotFile) {
       vm->registerChunkTypes(*snapshotFile);
       snapshotFile->processAllChunks();

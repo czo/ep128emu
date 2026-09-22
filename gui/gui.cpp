@@ -729,8 +729,8 @@ void Ep128EmuGUI::createMenus()
   // "Options/Process priority/High"
   for (int i = 4; i <= 8; i++)
     mainMenuBar->mode(getMenuItemIndex(i), FL_MENU_RADIO);
-#ifndef WIN32
-  // TODO: implement process priority setting on non-Windows platforms
+#if !defined(WIN32) && !defined(__APPLE__)
+  // TODO: implement process priority setting on other non-Windows platforms
   for (int i = 4; i <= 8; i++)
     getMenuItem(i).deactivate();
 #endif
@@ -1341,9 +1341,14 @@ void Ep128EmuGUI::applyEmulatorConfiguration(bool updateWindowFlag_)
 {
   if (lockVMThread()) {
     try {
+      bool    processPriorityChanged_ = config.vmProcessPriorityChanged;
       bool    updateMenuFlag_ =
-          config.soundSettingsChanged | config.vmProcessPriorityChanged;
+          config.soundSettingsChanged | processPriorityChanged_;
       config.applySettings();
+#ifdef __APPLE__
+      if (processPriorityChanged_)
+        vmThread.setHostThreadPriority(config.vm.processPriority);
+#endif
       vmThread.setSpeedPercentage(config.vm.speedPercentage == 100U &&
                                   config.sound.enabled ?
                                   0 : int(config.vm.speedPercentage));
