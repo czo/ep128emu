@@ -251,12 +251,29 @@ ep128emuGLGUIEnvironment = copyEnvironment(ep128emuGUIEnvironment)
 disableOpenGL = 1
 if configurePackage(ep128emuGLGUIEnvironment, 'FLTK-GL'):
     configure = ep128emuGLGUIEnvironment.Configure()
-    if configure.CheckCHeader('GL/gl.h'):
+    if sys.platform[:6] == 'darwin':
+        haveOpenGL = configure.CheckCHeader('OpenGL/gl.h')
+    else:
+        haveOpenGL = configure.CheckCHeader('GL/gl.h')
+    if haveOpenGL:
         disableOpenGL = 0
         if enableGLShaders:
-            if not configure.CheckType('PFNGLCOMPILESHADERPROC',
-                                       '#include <GL/gl.h>\n'
-                                       + '#include <GL/glext.h>'):
+            if sys.platform[:6] == 'darwin':
+                shaderTest = '''
+                    #include <OpenGL/gl.h>
+                    int main()
+                    {
+                      GLuint s = glCreateShader(GL_FRAGMENT_SHADER);
+                      glCompileShader(s);
+                      return 0;
+                    }
+                '''
+                if not configure.TryLink(shaderTest, '.cpp'):
+                    print('WARNING: disabling GL shader support')
+                    enableGLShaders = 0
+            elif not configure.CheckType('PFNGLCOMPILESHADERPROC',
+                                         '#include <GL/gl.h>\n'
+                                         + '#include <GL/glext.h>'):
                 print('WARNING: disabling GL shader support')
                 enableGLShaders = 0
     configure.Finish()
