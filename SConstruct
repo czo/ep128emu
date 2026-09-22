@@ -530,6 +530,8 @@ if enableReSID:
 ep128emuEnvironment.Prepend(LIBS = [ep128Lib, zx128Lib, cpc464Lib, tvc64Lib])
 
 ep128emuSources = ['gui/gui.cpp']
+if sys.platform[:6] == 'darwin':
+    ep128emuSources += ['gui/macos_activity.mm']
 ep128emuSources += fluidCompile(ep128emuGUIEnvironment, ['gui/gui.fl', 'gui/disk_cfg.fl',
                                  'gui/disp_cfg.fl', 'gui/kbd_cfg.fl',
                                  'gui/snd_cfg.fl', 'gui/vm_cfg.fl',

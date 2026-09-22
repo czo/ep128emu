@@ -22,6 +22,10 @@
 #include "vm.hpp"
 #include "vmthread.hpp"
 
+#ifdef __APPLE__
+#  include <pthread/qos.h>
+#endif
+
 static void defaultErrorCallback(void *userData_, const char *msg)
 {
   (void) userData_;
@@ -51,6 +55,7 @@ namespace Ep128Emu {
       pauseFlag(true),
       timesliceLength(0.0f),
       avgTimesliceLength(0.002f),
+      hostThreadPriority(0),
       prvTime(0.0),
       nxtTime(0.0),
       userData(userData_),
@@ -211,7 +216,39 @@ namespace Ep128Emu {
 
   void VMThread::run()
   {
+#ifdef __APPLE__
+    int appliedHostThreadPriority = 99;
+#endif
     while (true) {
+#ifdef __APPLE__
+      mutex_.lock();
+      int requestedHostThreadPriority = hostThreadPriority;
+      mutex_.unlock();
+      if (requestedHostThreadPriority != appliedHostThreadPriority) {
+        qos_class_t qosClass = QOS_CLASS_DEFAULT;
+        switch (requestedHostThreadPriority) {
+        case -2:
+          qosClass = QOS_CLASS_BACKGROUND;
+          break;
+        case -1:
+          qosClass = QOS_CLASS_UTILITY;
+          break;
+        case 1:
+          qosClass = QOS_CLASS_USER_INITIATED;
+          break;
+        case 2:
+          qosClass = QOS_CLASS_USER_INTERACTIVE;
+          break;
+        default:
+          qosClass = QOS_CLASS_DEFAULT;
+          break;
+        }
+        int err = pthread_set_qos_class_self_np(qosClass, 0);
+        appliedHostThreadPriority = requestedHostThreadPriority;
+        if (err != 0)
+          errorCallback(userData, "cannot set macOS emulation-thread QoS");
+      }
+#endif
       mutex_.lock();
       bool  lockFlag = (lockCnt != 0UL);
       if (lockFlag)
@@ -399,6 +436,14 @@ namespace Ep128Emu {
       timesliceLength = 0.2f / float(speedPercentage_);
     else
       timesliceLength = 0.0f;
+    mutex_.unlock();
+  }
+
+  void VMThread::setHostThreadPriority(int priority_)
+  {
+    priority_ = (priority_ > -2 ? (priority_ < 2 ? priority_ : 2) : -2);
+    mutex_.lock();
+    hostThreadPriority = priority_;
     mutex_.unlock();
   }
 
