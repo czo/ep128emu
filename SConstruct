@@ -27,6 +27,7 @@ enableMIDI = int(ARGUMENTS.get('midi', 0))
 enableCURL = int(ARGUMENTS.get('curl', int(not mingwCrossCompile)))
 userFlags = ARGUMENTS.get('cflags', '')
 userArch = ARGUMENTS.get('arch', '')
+userMinMacosVersion = ARGUMENTS.get('minmacos', '')
 disablePkgConfig = int(ARGUMENTS.get('nopkgconfig',
                                      int(linux32CrossCompile or \
                                          mingwCrossCompile)))
@@ -248,6 +249,10 @@ if userArch:
     for arch in userArch.split():
         ep128emuLibEnvironment.Append(CCFLAGS = [['-arch', arch]])
         ep128emuLibEnvironment.Append(LINKFLAGS = [['-arch', arch]])
+
+if userMinMacosVersion:
+    ep128emuLibEnvironment.Append(LINKFLAGS = [ '-mmacosx-version-min=%s' % userMinMacosVersion ])
+    ep128emuLibEnvironment.Append(CCFLAGS = [ '-mmacosx-version-min=%s' % userMinMacosVersion ])
 
 ep128emuGUIEnvironment = copyEnvironment(ep128emuLibEnvironment)
 if mingwCrossCompile:
