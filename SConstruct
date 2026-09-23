@@ -26,6 +26,7 @@ enableMIDI = int(ARGUMENTS.get('midi', 0))
 # use cURL library in makecfg to download the ROM package
 enableCURL = int(ARGUMENTS.get('curl', int(not mingwCrossCompile)))
 userFlags = ARGUMENTS.get('cflags', '')
+userArch = ARGUMENTS.get('arch', '')
 disablePkgConfig = int(ARGUMENTS.get('nopkgconfig',
                                      int(linux32CrossCompile or \
                                          mingwCrossCompile)))
@@ -243,6 +244,11 @@ if enableMIDI:
     ep128emuLibEnvironment.Append(CPPPATH = ['./portmidi/pm_common',
                                              './portmidi/porttime'])
 
+if userArch:
+    for arch in userArch.split():
+        ep128emuLibEnvironment.Append(CCFLAGS = [['-arch', arch]])
+        ep128emuLibEnvironment.Append(LINKFLAGS = [['-arch', arch]])
+
 ep128emuGUIEnvironment = copyEnvironment(ep128emuLibEnvironment)
 if mingwCrossCompile:
     ep128emuGUIEnvironment.Prepend(LINKFLAGS = ['-mwindows'])
@@ -381,10 +387,10 @@ if enableSDExt:
 if enableReSID:
     ep128emuLibEnvironment.Append(CCFLAGS = ['-DENABLE_RESID'])
 
-ep128emuGUIEnvironment.MergeFlags(ep128emuLibEnvironment['CCFLAGS'])
-ep128emuGLGUIEnvironment.MergeFlags(ep128emuLibEnvironment['CCFLAGS'])
-makecfgEnvironment.MergeFlags(ep128emuLibEnvironment['CCFLAGS'])
-tapeeditEnvironment.MergeFlags(ep128emuLibEnvironment['CCFLAGS'])
+ep128emuGUIEnvironment.MergeFlags({'CCFLAGS': ep128emuLibEnvironment['CCFLAGS']})
+ep128emuGLGUIEnvironment.MergeFlags({'CCFLAGS': ep128emuLibEnvironment['CCFLAGS']})
+makecfgEnvironment.MergeFlags({'CCFLAGS': ep128emuLibEnvironment['CCFLAGS']})
+tapeeditEnvironment.MergeFlags({'CCFLAGS': ep128emuLibEnvironment['CCFLAGS']})
 
 def fluidCompile(env, flNames):
     cppNames = []
