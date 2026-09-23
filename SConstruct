@@ -91,6 +91,19 @@ packageConfigs = {
         'curl/curl.h', '', 1]
 }
 
+def weak_framework_parse_workaround( env, output, unique = True ):
+    args = env.Split(output)
+    otherArgs = []
+    i = 0
+    while i < len(args):
+        if args[i] == '-weak_framework' and (i + 1) < len(args):
+            env.Append(LINKFLAGS = [[args[i], args[i + 1]]])
+            i = i + 2
+        else:
+            otherArgs.append(args[i])
+            i = i + 1
+    env.MergeFlags(' '.join(otherArgs), unique)
+
 def configurePackage(env, pkgName):
     global packageConfigs, disablePkgConfig
     global linux32CrossCompile, mingwCrossCompile, win64CrossCompile
@@ -105,7 +118,7 @@ def configurePackage(env, pkgName):
                 print('Checking for package ' + s + '...', end = ' ')
                 s = ' ' + s
             try:
-                env.ParseConfig(packageConfigs[pkgName][0] + s)
+                env.ParseConfig(packageConfigs[pkgName][0] + s, weak_framework_parse_workaround)
                 print('yes')
                 if not s:
                     env['CCFLAGS'] = savedCFlags
