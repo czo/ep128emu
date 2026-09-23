@@ -11,6 +11,15 @@ collectlibraries() {
             cp ${lib} ep128emu.app/Contents/Frameworks/
         fi
     done
+    for lib in $(grep -al dlopen ep128emu.app/Contents/Frameworks/*.dylib | sort | uniq); do
+        for referenced in $( cat ${lib} | strings | grep dylib | grep "/opt/local" | sort | uniq ); do
+            local basename=$(basename ${referenced})
+            if [ ! -f "ep128emu.app/Contents/Frameworks/${basename}" ]; then
+                local final=1
+                cp ${referenced} ep128emu.app/Contents/Frameworks/
+            fi
+        done
+    done
     return ${final}
 }
 
@@ -21,7 +30,6 @@ updatelibrpath() {
     done
     install_name_tool -add_rpath "@executable_path/../Frameworks" "${1}"
 }
-
 
 rm -rf ep128emu.app/Contents/Frameworks
 mkdir -p ep128emu.app/Contents/Frameworks
